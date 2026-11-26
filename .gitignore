@@ -1,0 +1,7 @@
+# Local Python environment and generated call data
+.venv/
+__pycache__/
+*.py[cod]
+.streamlit/secrets.toml
+data/
+.DS_Store

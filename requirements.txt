@@ -1,0 +1,6 @@
+streamlit>=1.50,<2
+scikit-learn>=1.5,<2
+SpeechRecognition>=3.10,<4
+deep-translator>=1.11,<2
+gTTS>=2.5,<3
+openai>=1.0,<3
