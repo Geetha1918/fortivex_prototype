@@ -1,7 +1,11 @@
-# Local Python environment and generated call data
-.venv/
 __pycache__/
 *.py[cod]
-.streamlit/secrets.toml
-data/
+*$py.class
+*.db
+*.db-wal
+*.db-shm
+.env
+.venv/
+venv/
 .DS_Store
+.pytest_cache/

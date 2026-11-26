@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NovaFlow AI — Autonomous Sales Voice Agent</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-logo">NF</div>
+        <div>
+          <h1>NovaFlow AI</h1>
+          <p class="subtitle">Autonomous Multilingual Sales Voice Agent &amp; Revenue Copilot</p>
+        </div>
+      </div>
+
+      <nav class="nav-tabs" role="tablist">
+        <button class="nav-tab active" data-tab="studio">Voice Studio</button>
+        <button class="nav-tab" data-tab="crm">CRM &amp; Calendar</button>
+        <button class="nav-tab" data-tab="insights">Summaries &amp; Insights</button>
+        <button class="nav-tab" data-tab="architecture">Architecture &amp; 100k Scale</button>
+      </nav>
+
+      <div class="status-badges">
+        <span id="provider-badge" class="badge badge-info">Engine: loading...</span>
+        <span id="pii-badge" class="badge badge-ok">PII Guardrail: ON</span>
+      </div>
+    </header>
+
+    <!-- TAB 1: VOICE STUDIO -->
+    <main id="tab-studio" class="tab-panel active">
+      <section class="call-setup-bar card">
+        <div class="setup-fields">
+          <div class="field">
+            <label for="lang-select">Language</label>
+            <select id="lang-select">
+              <option value="en">English (en-US)</option>
+              <option value="es">Español (es-ES)</option>
+              <option value="hi">हिन्दी / Hindi (hi-IN)</option>
+              <option value="fr">Français (fr-FR)</option>
+              <option value="de">Deutsch (de-DE)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="prospect-name">Prospect Name</label>
+            <input id="prospect-name" type="text" placeholder="e.g. Sarah Jenkins" />
+          </div>
+          <div class="field">
+            <label for="prospect-company">Company</label>
+            <input id="prospect-company" type="text" placeholder="e.g. FinScale Cloud" />
+          </div>
+          <div class="field">
+            <label for="prospect-email">Work Email</label>
+            <input id="prospect-email" type="email" placeholder="sarah@finscale.io" />
+          </div>
+        </div>
+        <div class="setup-actions">
+          <button id="btn-start-call" class="btn btn-primary">Start New Voice Call</button>
+          <button id="btn-end-call" class="btn btn-success" disabled>End Call &amp; Summarize</button>
+        </div>
+      </section>
+
+      <div class="studio-grid">
+        <!-- LEFT: VOICE & TRANSCRIPT -->
+        <section class="card voice-console">
+          <div class="panel-header">
+            <div>
+              <h2>Live Voice Interaction</h2>
+              <span id="session-id-label" class="muted">No active call — click "Start New Voice Call"</span>
+            </div>
+            <div class="voice-controls-mini">
+              <label class="toggle">
+                <input type="checkbox" id="toggle-tts" checked />
+                <span>Auto-Speak TTS</span>
+              </label>
+              <span id="ws-status" class="pill pill-muted">WS: Disconnected</span>
+            </div>
+          </div>
+
+          <div class="voice-stage">
+            <div class="waveform" id="waveform">
+              <span></span><span></span><span></span><span></span><span></span>
+              <span></span><span></span><span></span><span></span><span></span>
+            </div>
+            <div class="voice-stage-meta">
+              <div id="voice-state-label" class="voice-state">Idle — Ready to start</div>
+              <div class="voice-btn-group">
+                <button id="btn-mic" class="btn btn-mic" disabled>Start Mic (STT)</button>
+                <button id="btn-barge-in" class="btn btn-ghost" disabled>Interrupt / Barge-In</button>
+              </div>
+            </div>
+          </div>
+
+          <div id="transcript-feed" class="transcript-feed">
+            <div class="empty-state">
+              Start a call to test real-time Web Speech STT/TTS, multilingual RAG grounding, BANT scoring, and automated demo booking.
+            </div>
+          </div>
+
+          <div class="quick-scenarios">
+            <span class="muted small-label">1-Click Demo Utterances:</span>
+            <div class="scenario-chips">
+              <button class="chip" data-text="Hi, I'm Sarah Jenkins from FinScale Cloud. We are losing inbound leads due to slow 4-hour response times, have a $30k annual budget, and want to deploy this month.">Enterprise Hot Lead</button>
+              <button class="chip" data-text="Honestly $1,499 per month sounds expensive for our current SDR budget.">Pricing Objection</button>
+              <button class="chip" data-text="Are you SOC 2 Type II compliant and how do you integrate with Salesforce without AI hallucinations?">Security &amp; CRM</button>
+              <button class="chip" data-text="Hola, somos de Madrid y necesitamos automatizar las llamadas de ventas. ¿Cuál es el precio?">Spanish (ES)</button>
+              <button class="chip" data-text="नमस्ते, हमें अपनी सेल्स टीम के लिए लीड ऑटोमेशन और कीमत की जानकारी चाहिए।">Hindi (HI)</button>
+              <button class="chip" data-text="That sounds great, please go ahead and book a demo slot for me!">Book Demo Slot</button>
+            </div>
+          </div>
+
+          <form id="message-form" class="message-input-row">
+            <input
+              id="message-input"
+              type="text"
+              placeholder="Speak with mic or type prospect utterance..."
+              disabled
+            />
+            <button id="btn-send" type="submit" class="btn btn-primary" disabled>Send</button>
+          </form>
+        </section>
+
+        <!-- RIGHT: AGENT BRAIN INSPECTOR -->
+        <aside class="inspector-stack">
+          <!-- BANT QUALIFICATION -->
+          <section class="card inspector-card">
+            <div class="panel-header">
+              <h3>BANT Lead Qualification</h3>
+              <span id="bant-tier-badge" class="pill pill-muted">Cold (0/100)</span>
+            </div>
+            <div class="bant-bars">
+              <div class="bant-row">
+                <div class="bant-label"><span>Budget (25)</span><span id="bant-budget-val" class="muted">Not detected</span></div>
+                <div class="progress"><div id="bar-budget" class="progress-fill" style="width:0%"></div></div>
+              </div>
+              <div class="bant-row">
+                <div class="bant-label"><span>Authority (25)</span><span id="bant-authority-val" class="muted">Not detected</span></div>
+                <div class="progress"><div id="bar-authority" class="progress-fill" style="width:0%"></div></div>
+              </div>
+              <div class="bant-row">
+                <div class="bant-label"><span>Need (30)</span><span id="bant-need-val" class="muted">Not detected</span></div>
+                <div class="progress"><div id="bar-need" class="progress-fill" style="width:0%"></div></div>
+              </div>
+              <div class="bant-row">
+                <div class="bant-label"><span>Timeline (20)</span><span id="bant-timeline-val" class="muted">Not detected</span></div>
+                <div class="progress"><div id="bar-timeline" class="progress-fill" style="width:0%"></div></div>
+              </div>
+            </div>
+          </section>
+
+          <!-- SENTIMENT & SIGNALS -->
+          <section class="card inspector-card">
+            <div class="panel-header">
+              <h3>Sentiment &amp; Intent Telemetry</h3>
+              <span id="sentiment-badge" class="pill pill-muted">Neutral (0.00)</span>
+            </div>
+            <div id="sentiment-sparkline" class="sparkline-box">
+              <span class="muted small-label">Sentiment trajectory will appear after turn 1</span>
+            </div>
+            <div class="tag-columns">
+              <div>
+                <div class="small-label muted">Buying Signals</div>
+                <div id="buying-signals-list" class="tag-list"><span class="muted">None yet</span></div>
+              </div>
+              <div>
+                <div class="small-label muted">Objections Detected</div>
+                <div id="objections-list" class="tag-list"><span class="muted">None yet</span></div>
+              </div>
+            </div>
+          </section>
+
+          <!-- RAG GROUNDING -->
+          <section class="card inspector-card">
+            <div class="panel-header">
+              <h3>RAG Knowledge Citations</h3>
+              <span id="latency-badge" class="muted small-label">Latency: —</span>
+            </div>
+            <div id="rag-sources-list" class="rag-list">
+              <div class="muted small-label">Retrieved knowledge chunks will appear here per AI response.</div>
+            </div>
+          </section>
+
+          <!-- APPOINTMENT CARD -->
+          <section class="card inspector-card">
+            <div class="panel-header">
+              <h3>Automated Demo Booking</h3>
+              <span id="appt-status-badge" class="pill pill-muted">Unbooked</span>
+            </div>
+            <div id="appointment-box" class="appointment-box">
+              <div class="muted small-label">Ask the agent to book a demo or pick an open AE slot below:</div>
+              <div id="quick-slots-list" class="quick-slots"></div>
+            </div>
+          </section>
+        </aside>
+      </div>
+    </main>
+
+    <!-- TAB 2: CRM & CALENDAR -->
+    <main id="tab-crm" class="tab-panel">
+      <div class="two-col-grid">
+        <section class="card">
+          <div class="panel-header">
+            <h2>Synced CRM Leads Pipeline</h2>
+            <button id="btn-refresh-crm" class="btn btn-ghost">Refresh</button>
+          </div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Prospect</th>
+                  <th>Company</th>
+                  <th>Lang</th>
+                  <th>BANT</th>
+                  <th>Tier</th>
+                  <th>Stage</th>
+                  <th>Est. ACV</th>
+                </tr>
+              </thead>
+              <tbody id="crm-leads-tbody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="panel-header">
+            <h2>Booked Appointments &amp; AE Slots</h2>
+            <button id="btn-refresh-cal" class="btn btn-ghost">Refresh</button>
+          </div>
+          <div id="booked-appts-list" class="stack-list"></div>
+          <h3 class="section-subhead">AE Calendar Inventory</h3>
+          <div id="all-slots-list" class="slots-grid"></div>
+        </section>
+      </div>
+
+      <section class="card">
+        <div class="panel-header">
+          <h2>CRM Webhook Dispatch Log (HubSpot / Salesforce Adapter)</h2>
+          <span class="muted small-label">Idempotent HMAC-ready event payloads</span>
+        </div>
+        <div id="webhook-logs-list" class="webhook-list"></div>
+      </section>
+    </main>
+
+    <!-- TAB 3: SUMMARIES & INSIGHTS -->
+    <main id="tab-insights" class="tab-panel">
+      <div class="kpi-grid" id="insights-kpis"></div>
+
+      <div class="two-col-grid">
+        <section class="card">
+          <h2>Pipeline &amp; Objection Analytics</h2>
+          <div id="insights-distributions" class="dist-grid"></div>
+        </section>
+
+        <section class="card">
+          <h2>Latest Executive Call Summary</h2>
+          <div id="latest-summary-box" class="summary-detail">
+            <div class="muted">Complete a call or click "End Call &amp; Summarize" to view executive insights &amp; follow-up email.</div>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <!-- TAB 4: ARCHITECTURE, 100K SCALE & UNIT ECONOMICS -->
+    <main id="tab-architecture" class="tab-panel">
+      <section class="card">
+        <h2>System Architecture — Real-Time Autonomous Voice Pipeline</h2>
+        <div class="arch-diagram">
+          <div class="arch-layer">
+            <div class="arch-node">
+              <strong>1. Voice Edge &amp; Telephony</strong>
+              <span>WebRTC / Browser Mic + Web Speech API / Twilio SIP Trunking</span>
+            </div>
+            <div class="arch-arrow">→</div>
+            <div class="arch-node">
+              <strong>2. Realtime Streaming Gateway</strong>
+              <span>Starlette ASGI WebSockets, VAD, Barge-In Interrupts (&lt;150ms)</span>
+            </div>
+            <div class="arch-arrow">→</div>
+            <div class="arch-node">
+              <strong>3. NLP &amp; Guardrail Layer</strong>
+              <span>Lang Detection (5 langs), PII Redaction, BANT Scorer, Sentiment</span>
+            </div>
+          </div>
+          <div class="arch-layer">
+            <div class="arch-node">
+              <strong>4. Hybrid RAG Engine</strong>
+              <span>TF-IDF + Vector Index (Qdrant/pgvector at scale) + Citation Grounding</span>
+            </div>
+            <div class="arch-arrow">→</div>
+            <div class="arch-node">
+              <strong>5. Agentic LLM Router</strong>
+              <span>Anthropic / OpenAI / Gemini + Deterministic Fallback Circuit Breaker</span>
+            </div>
+            <div class="arch-arrow">→</div>
+            <div class="arch-node">
+              <strong>6. Integrations &amp; Insights</strong>
+              <span>Atomic Calendar (.ics), CRM Webhooks (HubSpot/SFDC), Call BI</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="two-col-grid">
+        <section class="card">
+          <h2>Scalability Strategy: Supporting 100,000 Users</h2>
+          <ul class="bullet-list">
+            <li><strong>Concurrent Voice Capacity:</strong> At 100k MAU (~3–5% peak concurrency = 3,000–5,000 simultaneous calls), deploy stateless ASGI WebSocket workers on Kubernetes (HPA on active WS connections + CPU) behind Envoy/ALB sticky-session routing.</li>
+            <li><strong>Multi-Region Edge PoPs:</strong> Geo-route voice media to US-East, EU-Central, and AP-South (Mumbai) to keep RTT &lt; 60ms and meet GDPR / India DPDP data residency.</li>
+            <li><strong>Distributed Memory &amp; RAG:</strong> Move SQLite to <strong>PostgreSQL + pgvector / Qdrant</strong> with read replicas, and store hot session turn context in <strong>Redis Cluster</strong> (&lt;2ms read).</li>
+            <li><strong>Async Event Bus:</strong> Decouple CRM webhooks, call summarization, and analytics into <strong>Kafka / RabbitMQ</strong> worker queues so voice turns never block on third-party CRM rate limits.</li>
+            <li><strong>LLM Cost &amp; Latency Tiering:</strong> Route 80% of qualification/FAQ turns to fast distilled/flash models + semantic cache, reserving frontier models for complex enterprise objections.</li>
+          </ul>
+        </section>
+
+        <section class="card">
+          <h2>Interactive Unit Economics &amp; ROI Calculator</h2>
+          <div class="calc-controls">
+            <div class="calc-row">
+              <label>Monthly Calls: <strong id="calc-calls-val">5,000</strong></label>
+              <input id="calc-calls" type="range" min="500" max="100000" step="500" value="5000" />
+            </div>
+            <div class="calc-row">
+              <label>Avg Call Duration (mins): <strong id="calc-mins-val">4</strong></label>
+              <input id="calc-mins" type="range" min="1" max="15" step="1" value="4" />
+            </div>
+            <div class="calc-row">
+              <label>Model Tier</label>
+              <select id="calc-tier">
+                <option value="0.032">Hybrid Fast (Flash/Haiku + Deepgram/Cartesia — $0.032/min)</option>
+                <option value="0.068">Premium Voice (GPT-4o + ElevenLabs — $0.068/min)</option>
+                <option value="0.015">Self-Hosted Open Weights (vLLM + Whisper — $0.015/min)</option>
+              </select>
+            </div>
+          </div>
+          <div id="calc-output" class="calc-results"></div>
+        </section>
+      </div>
+
+      <section class="card">
+        <h2>Security, Compliance &amp; Governance Matrix</h2>
+        <div class="security-grid">
+          <div class="sec-item"><strong>Transport &amp; Storage Encryption</strong><p>TLS 1.3 for WebSocket/SIP streams; AES-256 KMS encryption for transcripts and SQLite/Postgres volumes.</p></div>
+          <div class="sec-item"><strong>Real-Time PII Redaction</strong><p>Regex + NER filter masks card numbers, SSNs, and sensitive tokens prior to persistent storage or external LLM calls.</p></div>
+          <div class="sec-item"><strong>Anti-Hallucination Grounding</strong><p>Every product/pricing statement is anchored to versioned KB chunks with confidence scoring and citation audit logs.</p></div>
+          <div class="sec-item"><strong>Compliance &amp; Consent</strong><p>SOC 2 Type II controls, GDPR right-to-erasure APIs, Zero Data Retention (ZDR) LLM endpoints, and TCPA call-recording disclosures.</p></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

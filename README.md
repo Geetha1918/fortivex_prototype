@@ -1,71 +1,87 @@
-# Autonomous AI Sales Voice Agent (Python prototype)
+# NovaFlow AI — Autonomous Sales Voice Agent
 
-This Streamlit demo covers all six requested areas at an individual-project scale: turn-based voice input/output, session conversation memory, language translation, lead qualification and sentiment, TF-IDF retrieval from product notes, local appointment/CRM records, and simple call-level business insights.
+A functional end-to-end AI Sales Voice Agent prototype featuring real-time browser STT/TTS over WebSockets, multilingual conversation (`EN`, `ES`, `HI`, `FR`, `DE`), incremental BANT lead qualification, sentiment & objection analysis, hybrid RAG knowledge grounding with citations, conflict-free calendar booking (`.ics`), CRM webhook sync, and executive call summarization.
 
-## Run it
+---
 
+## Quickstart
+
+### 1. Run the Application
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate        # Windows: .venv\\Scripts\\activate
-python -m pip install -r requirements.txt
-python -m streamlit run app.py
+cd autonomous-ai-sales-voice-agent
+./start.sh
+# Or directly with Python 3.13:
+# /usr/local/bin/python3 run.py
+```
+Then open **http://127.0.0.1:8000** in Chrome, Edge, or Safari.
+
+> **Conda Note:** If your terminal has `(base)` conda active and `python3` resolves to conda without `uvicorn`, `./start.sh` automatically selects `/usr/local/bin/python3` (or run `conda deactivate` first).
+
+> **Zero-Key Guarantee:** The system runs out-of-the-box with zero external API keys using its built-in **Deterministic RAG + Multilingual Sales Engine**. To enable live frontier LLM generation, copy `.env.example` to `.env` and set `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, or `GEMINI_API_KEY`.
+
+### 2. Run Automated Tests (Unit + End-to-End WebSocket/REST)
+```bash
+/usr/local/bin/python3 -m unittest discover -s tests -v
 ```
 
-Choose a language in the sidebar. Record a short call turn; when recording finishes, the app automatically transcribes it into an editable text box. You can correct that transcript or use the separate **Paste conversation if needed (optional)** box. Pasted text takes precedence if both boxes contain text. Press **Process call turn**, review the answer, lead score, summary, and insights, then use **Book a follow-up meeting** to write an appointment.
+---
 
-For natural, issue-solving answers, create an OpenAI API key and paste it into the password field in the sidebar. The app sends the current transcript, recent session turns, and the retrieved product note to the OpenAI Responses API. Without a key, it falls back to the simpler knowledge-note response. API usage may incur charges. Never paste a key into source code or commit it to Git. The current model setting is `gpt-6-luna` and can be changed in `app.py`.
+## End-to-End Demo Walkthrough
 
-Try this English transcript: “We have a team of 12, the budget is approved, and we want a demo next month.” Ask “How does the analytics dashboard work?” Then try “How can our team import leads?” to see a different retrieved note. An unrelated question should now get a clear “not in the product notes” answer instead of a random product fact.
+1. Click **Start New Voice Call** in the **Voice Studio** tab (optionally enter prospect name/company/language).
+2. Click **Start Mic (STT)** to speak directly in your browser, **OR** click any of the **1-Click Demo Utterances**:
+   - *Enterprise Hot Lead* → Watch BANT score jump to `Hot` (`>=75/100`), contact entities auto-extract, and CRM stage advance to `Qualified (SQL)`.
+   - *Pricing Objection* → Watch Sentiment shift to `Skeptical`, `Pricing / Budget` objection tag appear, and RAG retrieve the Objection Playbook with similarity scores.
+   - *Spanish / Hindi* → Watch automatic language detection switch TTS voice and grounded response language seamlessly.
+   - *Book Demo Slot* → Watch atomic calendar slot reservation, `.ics` invite generation, and CRM webhook dispatch (`Demo Scheduled`).
+3. Click **End Call & Summarize** to inspect the structured executive summary, recommended plan, next actions, and AI-drafted follow-up email.
+4. Explore **CRM & Calendar**, **Summaries & Insights**, and **Architecture & 100k Scale** (including the interactive Unit Economics calculator).
 
-## Architecture
+---
 
-```mermaid
-flowchart LR
-  A[Browser audio or typed transcript] --> B[STT / transcript]
-  B --> C[Optional language translation]
-  C --> D[Session conversation memory]
-  D --> E[Lead score and sentiment rules]
-  D --> F[TF-IDF retrieval from product notes]
-  F --> G[LLM grounded in retrieved note]
-  G --> H[Optional translated TTS audio]
-  E --> I[Call summary]
-  G --> I
-  I --> J[Local CRM lead CSV]
-  I --> K[Call insights CSV]
-  L[Appointment form] --> M[Local appointments CSV]
+## Project Structure
+
+```
+autonomous-ai-sales-voice-agent/
+├── app/
+│   ├── agent/
+│   │   ├── llm_provider.py      # Multi-LLM router (Anthropic/OpenAI/Gemini) + Deterministic RAG fallback
+│   │   └── sales_agent.py       # Core orchestrator (memory, RAG, BANT, sentiment, booking, CRM, summary)
+│   ├── api/routes.py            # Starlette REST + WebSocket (/ws/call/{session_id}) endpoints
+│   ├── integrations/
+│   │   ├── calendar_service.py  # Atomic slot reservation & RFC 5545 .ics invite generator
+│   │   └── crm_service.py       # Lead upsert, stage progression & idempotent webhook log
+│   ├── nlp/
+│   │   ├── multilingual.py      # 5-language detector & localized greetings
+│   │   ├── qualification.py     # Incremental BANT scorer & contact entity extractor
+│   │   ├── security.py          # Real-time PII redaction (cards, SSNs, optional contact masking)
+│   │   └── sentiment.py         # Polarity, emotion, buying-signal & objection detector
+│   ├── rag/retriever.py         # Hybrid TF-IDF + tag boost + cross-lingual query expansion
+│   ├── voice/adapters.py        # STT/TTS provider directives & latency helpers
+│   ├── config.py                # Settings & language registry
+│   ├── database.py              # Thread-safe SQLite repository
+│   ├── main.py                  # Starlette ASGI app factory
+│   └── models.py                # Pydantic schemas
+├── data/knowledge_base.json     # Product, pricing, security, CRM, ROI & objection KB
+├── static/                      # Executive single-page Voice Studio & BI UI
+├── tests/                       # Unit & full E2E REST/WebSocket tests
+├── ARCHITECTURE.md              # Architecture Mermaid diagrams, 100k-user scale, security & costs
+└── run.py                       # Uvicorn server entrypoint
 ```
 
-### Production scale path (design proposal)
+---
 
-```mermaid
-flowchart LR
-  U[Users] --> LB[Load balancer / API gateway]
-  LB --> APP[Autoscaled stateless app workers]
-  APP --> Q[Audio and call job queue]
-  Q --> W[Autoscaled STT / LLM / TTS workers]
-  W --> V[Approved AI service providers]
-  APP --> R[(Tenant-aware CRM database)]
-  APP --> C[(Managed conversation cache)]
-  APP --> K[(Product search / vector index)]
-  W --> O[(Encrypted object storage)]
-  APP --> X[CRM and calendar connectors]
-  APP --> OBS[Logs, metrics, alerts]
-  W --> OBS
-```
+## Key API Endpoints
 
-This is the proposed path toward 100,000 registered users, not infrastructure deployed by the prototype. Capacity should be based on tested concurrent calls, since registered users are not all active at once.
-
-## What each feature means in this demo
-
-1. **Voice:** record a turn in the browser; Google-backed speech recognition transcribes it. A Google TTS voice reads the answer. This is turn-based recording, not continuous phone-call streaming.
-2. **Context and languages:** the app keeps turns in the current browser session and includes earlier lead turns in retrieval. Optional translation supports English, Hindi, Spanish, French, German, Tamil, and Telugu. Translation and speech require internet access.
-3. **Qualification and sentiment:** readable Python keyword rules produce a starter score, buying-signal list, and sentiment label. These are not validated predictive models.
-4. **RAG:** TF-IDF and cosine similarity retrieve relevant product notes; when an API key is configured, an LLM uses those notes and session context to write a natural answer. It is instructed to avoid inventing Fortivex features or prices and to say when product information is missing. Without a key, the app returns a simple knowledge-note response.
-5. **Booking and CRM:** follow-up appointments and lead records are appended to CSV files in `data/`. These are local stand-ins for real calendar and CRM APIs.
-6. **Summaries and insights:** each call creates a summary; the dashboard counts processed calls, high-qualified leads, and positive sentiment from local records.
-
-## Important demo limits
-
-The OpenAI response, speech recognition, translation, and synthesized speech use external services and need internet access. API usage may incur charges. Do not send confidential calls without checking provider terms, obtaining consent, and reviewing security. The local CSV files have no authentication, multi-user isolation, encryption, or automatic deletion. For a real system, use approved vendors, protected storage, a real CRM/calendar connector, human review, and a labeled evaluation set.
-
-See [PROJECT_REPORT.md](PROJECT_REPORT.md) for the one-page business, scaling, and interview summary.
+| Method & Path | Purpose |
+|---|---|
+| `GET /api/health` | Service health, active LLM engine, PII guardrail & KB stats |
+| `POST /api/calls` | Start a new voice sales session + localized greeting + CRM lead |
+| `WS /ws/call/{session_id}` | Real-time bidirectional voice transcript, barge-in & end-call stream |
+| `POST /api/calls/{session_id}/message` | REST turn processing (RAG + BANT + sentiment + auto-booking) |
+| `POST /api/calls/{session_id}/book` | Manual or explicit slot reservation |
+| `POST /api/calls/{session_id}/summarize` | Generate executive call summary & follow-up email |
+| `GET /api/calendar/appointments/{id}/ics` | Download RFC 5545 `.ics` calendar invite |
+| `GET /api/crm` | View synced CRM leads & webhook payloads |
+| `GET /api/insights` | Aggregate conversion, BANT, sentiment, language & objection KPIs |
+| `POST /api/kb/documents` | Dynamically index a new KB document for live RAG retrieval |
